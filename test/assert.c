@@ -1,6 +1,17 @@
 #include <cover/suite.h>
 
+#include <stdio.h>
 #include <stdbool.h>
+
+void
+cover_suite_init(int argc, char **argv) {
+	fputs("Suite runtime initialization example\n", stderr);
+}
+
+void
+cover_suite_fini(int *statusp) {
+	fputs("Suite runtime finalization example\n", stderr);
+}
 
 static void
 test_assert_success(void) {

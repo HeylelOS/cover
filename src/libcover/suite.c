@@ -96,11 +96,10 @@ cover_setup_sigactions(void) {
 	}
 }
 
-static int
+static void
 cover_run_suite(void) {
 	extern const struct cover_case cover_suite[];
 	const struct cover_case *suitecase = cover_suite;
-	int status = EXIT_SUCCESS;
 
 	while (suitecase->type != COVER_CASE_TYPE_END && !state.terminate) {
 
@@ -112,21 +111,15 @@ cover_run_suite(void) {
 
 		backends_report(suitecase->name, &state.report);
 
-		if (state.report.failed) {
-			status = EXIT_FAILURE;
-		}
-
 		suitecase++;
 	}
-
-	return status;
 }
 
 int
 main(int argc, char **argv) {
 	extern void __attribute__((weak)) cover_suite_init(int, char **);
-	extern void __attribute__((weak)) cover_suite_fini(void);
-	int status;
+	extern void __attribute__((weak)) cover_suite_fini(int *);
+	int status = EXIT_SUCCESS;
 
 	cover_setup_backends(argc, argv);
 
@@ -135,11 +128,10 @@ main(int argc, char **argv) {
 	}
 
 	cover_setup_sigactions();
-
-	status = cover_run_suite();
+	cover_run_suite();
 
 	if (cover_suite_fini) {
-		cover_suite_fini();
+		cover_suite_fini(&status);
 	}
 
 	return status;

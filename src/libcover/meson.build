@@ -4,7 +4,8 @@ libcover = library('cover',
 	install : true,
 	override_options : [ 'b_lundef=false' ], # Required to lazily acquire cover_suite
 	sources : [
-		'backends/output.c',
+		'backends/pretty.c',
+		'backends/tap.c',
 		'backends.c',
 		'suite.c',
 	]

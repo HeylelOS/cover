@@ -34,7 +34,7 @@ static bool colorized;
 static unsigned int failures, total;
 
 static void
-output_info(const char *format, ...) {
+pretty_info(const char *format, ...) {
 	va_list ap;
 
 	if (colorized) {
@@ -51,7 +51,7 @@ output_info(const char *format, ...) {
 }
 
 static void
-output_pass(const char *format, ...) {
+pretty_pass(const char *format, ...) {
 	va_list ap;
 
 	if (colorized) {
@@ -66,7 +66,7 @@ output_pass(const char *format, ...) {
 }
 
 static void
-output_fail(const char *format, ...) {
+pretty_fail(const char *format, ...) {
 	va_list ap;
 
 	if (colorized) {
@@ -81,12 +81,13 @@ output_fail(const char *format, ...) {
 }
 
 static void
-output_diagnosis(const char *format, ...) {
+pretty_diagnosis(const char *format, ...) {
 	va_list ap;
 
 	if (colorized) {
-		fputs(ANSI_SGR_BOLD(ANSI_COLOR_YELLOW)"       > ", output);
+		fputs(ANSI_SGR_BOLD(ANSI_COLOR_YELLOW), output);
 	}
+	fputs("       > ", output);
 
 	va_start(ap, format);
 	vfprintf(output, format, ap);
@@ -98,7 +99,7 @@ output_diagnosis(const char *format, ...) {
 }
 
 static void
-output_diagnose_signal_code_reason(int code, const struct si_code_description *descriptions, size_t descriptionscount) {
+pretty_diagnose_signal_code_reason(int code, const struct si_code_description *descriptions, size_t descriptionscount) {
 	size_t i = 0;
 
 	while (i < descriptionscount && descriptions[i].code != code) {
@@ -106,12 +107,12 @@ output_diagnose_signal_code_reason(int code, const struct si_code_description *d
 	}
 
 	if (i != descriptionscount) {
-		output_diagnosis("%s\n", descriptions[i].reason);
+		pretty_diagnosis("%s\n", descriptions[i].reason);
 	}
 }
 
 static void
-output_diagnose_signal(const siginfo_t *info) {
+pretty_diagnose_signal(const siginfo_t *info) {
 	static const struct si_code_description bus_descriptions[] = {
 		{ .code = BUS_ADRALN, .reason = "Invalid address alignment." },
 		{ .code = BUS_ADRERR, .reason = "Nonexistent physical address." },
@@ -142,83 +143,86 @@ output_diagnose_signal(const siginfo_t *info) {
 		{ .code = SEGV_ACCERR, .reason = "Invalid permissions for mapped object." },
 	};
 
-	output_diagnosis("Received signal %d (%s)\n", info->si_signo, strsignal(info->si_signo));
+	pretty_diagnosis("Received signal %d (%s)\n", info->si_signo, strsignal(info->si_signo));
 	switch (info->si_signo) {
 	case SIGABRT:
-		output_diagnosis("Process abort signal.\n");
+		pretty_diagnosis("Process abort signal.\n");
 		break;
 	case SIGBUS:
-		output_diagnosis("Access to an undefined portion of a memory object at %p.\n", info->si_addr);
-		output_diagnose_signal_code_reason(info->si_code, bus_descriptions, sizeof (bus_descriptions) / sizeof (*bus_descriptions));
+		pretty_diagnosis("Access to an undefined portion of a memory object at %p.\n", info->si_addr);
+		pretty_diagnose_signal_code_reason(info->si_code, bus_descriptions, sizeof (bus_descriptions) / sizeof (*bus_descriptions));
 		break;
 	case SIGFPE:
-		output_diagnosis("Erroneous arithmetic operation at %p.\n", info->si_addr);
-		output_diagnose_signal_code_reason(info->si_code, fpe_descriptions, sizeof (fpe_descriptions) / sizeof (*fpe_descriptions));
+		pretty_diagnosis("Erroneous arithmetic operation at %p.\n", info->si_addr);
+		pretty_diagnose_signal_code_reason(info->si_code, fpe_descriptions, sizeof (fpe_descriptions) / sizeof (*fpe_descriptions));
 		break;
 	case SIGHUP:
-		output_diagnosis("Hangup.\n");
+		pretty_diagnosis("Hangup.\n");
 		break;
 	case SIGILL:
-		output_diagnosis("Illegal instruction at %p.\n", info->si_addr);
-		output_diagnose_signal_code_reason(info->si_code, ill_descriptions, sizeof (ill_descriptions) / sizeof (*ill_descriptions));
+		pretty_diagnosis("Illegal instruction at %p.\n", info->si_addr);
+		pretty_diagnose_signal_code_reason(info->si_code, ill_descriptions, sizeof (ill_descriptions) / sizeof (*ill_descriptions));
 		break;
 	case SIGPIPE:
-		output_diagnosis("Write on a pipe with no one to read it.\n");
+		pretty_diagnosis("Write on a pipe with no one to read it.\n");
 		break;
 	case SIGSEGV:
-		output_diagnosis("Invalid memory reference at %p.\n", info->si_addr);
-		output_diagnose_signal_code_reason(info->si_code, segv_descriptions, sizeof (segv_descriptions) / sizeof (*segv_descriptions));
+		pretty_diagnosis("Invalid memory reference at %p.\n", info->si_addr);
+		pretty_diagnose_signal_code_reason(info->si_code, segv_descriptions, sizeof (segv_descriptions) / sizeof (*segv_descriptions));
 		break;
 	case SIGTRAP:
-		output_diagnosis("Trace/breakpoint trap.\n");
+		pretty_diagnosis("Trace/breakpoint trap.\n");
 		break;
 	}
 }
 
 static void
-cover_backend_output_fini(void) {
-	output_info("End of test suite, %u failure%s out of %u test%s\n", failures, failures != 1 ? "s" : "", total, total != 1 ? "s" : "");
-	fclose(output);
+cover_backend_pretty_fini(void) {
+
+	pretty_info("End of test suite, %u failure%s out of %u test%s\n", failures, failures != 1 ? "s" : "", total, total != 1 ? "s" : "");
+
+	if (output != stdout) {
+		fclose(output);
+	}
 }
 
 void
-cover_backend_output_init(const char *filename) {
+cover_backend_pretty_init(const char *filename) {
 
 	if (strcmp(filename, "-") != 0) {
 		output = fopen(filename, "w");
+		if (output == NULL) {
+			err(EXIT_FAILURE, "fopen %s", filename);
+		}
 	} else {
-		output = fdopen(dup(STDOUT_FILENO), "w");
-	}
-
-	if (output == NULL) {
-		err(EXIT_FAILURE, "fopen %s", filename);
+		output = stdout;
 	}
 
 	colorized = !!isatty(fileno(output));
 
-	output_info("Starting test suite\n");
+	pretty_info("Starting test suite\n");
 
-	atexit(cover_backend_output_fini);
+	atexit(cover_backend_pretty_fini);
 }
 
 void
-cover_backend_output_report(const char *name, const struct cover_case_report *report) {
+cover_backend_pretty_report(const char *name, const struct cover_case_report *report) {
 
 	if (report->failed) {
 
 		if (report->failure.file != NULL) {
-			output_fail("%s in file '%s' at line %d: %s\n", name, report->failure.file, report->failure.lineno, report->failure.message);
+			pretty_fail("%s in file '%s' at line %d: %s\n", name, report->failure.file, report->failure.lineno, report->failure.message);
 		} else {
-			output_fail("%s: %s\n", name, report->failure.message);
+			pretty_fail("%s: %s\n", name, report->failure.message);
 		}
 
 		if (report->failure.siginfo != NULL) {
-			output_diagnose_signal(report->failure.siginfo);
+			pretty_diagnose_signal(report->failure.siginfo);
 		}
 
 		failures++;
 	} else {
-		output_pass("%s\n", name);
+		pretty_pass("%s\n", name);
 	}
 
 	total++;

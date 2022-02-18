@@ -16,8 +16,8 @@ libdl = cc.find_library('dl', required : false)
 subdir('include')
 subdir('src/libcover')
 
-############
-# Examples #
-############
+#########
+# Tests #
+#########
 
-subdir('examples')
+subdir('test')

@@ -16,25 +16,24 @@ cover to correctly call finalization triggers, complete reports and resource cle
 ## Examples
 
 A set of simple examples is provided with this repository, three examples showing how to use some features of cover:
-- assert: Using assertions inside tests to test invariants.
-- finit: How to define an initialization and/or a finalization hook to setup or free resources for the test suite.
+- assert: Using assertions inside tests to test invariants. And how to setup initialization and/or a finalization hooks to free resources for the test suite.
 - signal: Shows how cover catches common failure signals to enforce test suite completion and meaningful reportings.
 
 A cover test executable must explicitly activate its reporting backends when called.
-For example, and if you are in your build directory and built the assert example:
+For example, if you are in your build directory and built the assert test example:
 ```
-examples/assert -output - # Activate the 'output' backend with option '-', which means use standard output
+test/assert -pretty - # Activate the 'pretty' backend with option '-' (standard output)
 ```
 
 ## Backends
 
-Cover dynamically finds its backends, when an argument is provided on the command line (like `-output` in the previous examples).
+Cover dynamically finds its backends, when an argument is provided on the command line (like `-pretty` in the previous example).
 When detected, it looks up the associated `cover_backend_<backend>_init` initialization and `cover_backend_<backend>_report` reporting function symbols.
 The initialization is done before the `init` hook, and thus is allowed to fail before the test suite execution begins.
 It allows defining custom reporting backends alongside any project's test suite without having to recompile libcover or install anything.
 
 - [x] Fancy/colorful output.
-- [ ] TAP (Test anything protocol).
+- [x] TAP (Test anything protocol).
 - [ ] JUnit XML report.
 
 ## Configure, build and install
