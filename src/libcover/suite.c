@@ -12,11 +12,38 @@
 #include "backends.h"
 #include "case.h"
 
+static void
+cover_err_sigaction(int sig, siginfo_t *info, void *ucontext);
+
+static void
+cover_term_handler(int sig);
+
 static struct {
 	struct cover_case_report report;
 	sigjmp_buf env;
 	bool terminate;
 } state;
+
+static struct {
+	const int signo;
+	const struct sigaction act;
+	struct sigaction oldact;
+} sigstates[] = {
+	{ .signo = SIGABRT, .act = { .sa_sigaction = cover_err_sigaction, .sa_flags = SA_SIGINFO } },
+	{ .signo = SIGBUS,  .act = { .sa_sigaction = cover_err_sigaction, .sa_flags = SA_SIGINFO } },
+	{ .signo = SIGFPE,  .act = { .sa_sigaction = cover_err_sigaction, .sa_flags = SA_SIGINFO } },
+	{ .signo = SIGHUP,  .act = { .sa_sigaction = cover_err_sigaction, .sa_flags = SA_SIGINFO } },
+	{ .signo = SIGILL,  .act = { .sa_sigaction = cover_err_sigaction, .sa_flags = SA_SIGINFO } },
+	{ .signo = SIGPIPE, .act = { .sa_sigaction = cover_err_sigaction, .sa_flags = SA_SIGINFO } },
+	{ .signo = SIGSEGV, .act = { .sa_sigaction = cover_err_sigaction, .sa_flags = SA_SIGINFO } },
+	{ .signo = SIGTRAP, .act = { .sa_sigaction = cover_err_sigaction, .sa_flags = SA_SIGINFO } },
+
+	{ .signo = SIGINT,  .act = { .sa_handler = cover_term_handler } },
+	{ .signo = SIGQUIT, .act = { .sa_handler = cover_term_handler } },
+	{ .signo = SIGTERM, .act = { .sa_handler = cover_term_handler } },
+	{ .signo = SIGXCPU, .act = { .sa_handler = cover_term_handler } },
+	{ .signo = SIGXFSZ, .act = { .sa_handler = cover_term_handler } },
+};
 
 void
 cover_fail_at(const char *message, const char *file, int lineno) {
@@ -70,29 +97,15 @@ cover_term_handler(int sig) {
 
 static void
 cover_setup_sigactions(void) {
-	static const int errsigs[] = {
-		SIGABRT, SIGBUS, SIGFPE, SIGHUP,
-		SIGILL, SIGPIPE, SIGSEGV, SIGTRAP,
-	};
-	static const int termsigs[] = {
-		SIGINT, SIGQUIT, SIGTERM,
-	};
-
-	for (int i = 0; i < sizeof (errsigs) / sizeof (*errsigs); i++) {
-		const struct sigaction sa = {
-			.sa_sigaction = cover_err_sigaction,
-			.sa_flags = SA_SIGINFO,
-		};
-
-		sigaction(errsigs[i], &sa, NULL);
+	for (unsigned int i = 0; i < sizeof (sigstates) / sizeof (*sigstates); i++) {
+		sigaction(sigstates[i].signo, &sigstates[i].act, &sigstates[i].oldact);
 	}
+}
 
-	for (int i = 0; i < sizeof (termsigs) / sizeof (*termsigs); i++) {
-		const struct sigaction sa = {
-			.sa_handler = cover_term_handler,
-		};
-
-		sigaction(termsigs[i], &sa, NULL);
+static void
+cover_restore_sigactions(void) {
+	for (unsigned int i = 0; i < sizeof (sigstates) / sizeof (*sigstates); i++) {
+		sigaction(sigstates[i].signo, &sigstates[i].oldact, NULL);
 	}
 }
 
@@ -129,6 +142,7 @@ main(int argc, char **argv) {
 
 	cover_setup_sigactions();
 	cover_run_suite();
+	cover_restore_sigactions();
 
 	if (cover_suite_fini) {
 		cover_suite_fini(&status);
